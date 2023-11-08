@@ -16,7 +16,12 @@ async function onVoiceStateEvent(event: VoiceStateChangedEvent): Promise<void> {
     case "USER_JOINED": {
       const ch = event.voiceState.channel;
 
+      // das hier nur einmal on bot join
       ch.client.user.setPresence({ status: "online" });
+
+      // cooldown wenn der gleiche user mehrmals joined/leaved
+
+      // nur hallo sagen, wenn der neue user im gleichen channel kommt
 
       Logger.info(
         `User ${bold(
@@ -27,7 +32,8 @@ async function onVoiceStateEvent(event: VoiceStateChangedEvent): Promise<void> {
       subscriptionManager.ensureSubscribed(ch);
 
       await delay(500);
-      player.playSound("hallo");
+      player.playSound("HALLO");
+
       break;
     }
 

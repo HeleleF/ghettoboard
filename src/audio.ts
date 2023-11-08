@@ -27,7 +27,7 @@ class SoundPlayer extends AudioPlayer {
   async available() {
     const all = await this.#availableSounds;
 
-    return [...all.values()].join(",");
+    return [...all.values()].map((name) => name.slice(0, -4)).sort();
   }
 
   async playSound(name: string): Promise<boolean> {

@@ -17,7 +17,15 @@ export async function onMessage(message: Message): Promise<void> {
 
   if (text === "all") {
     const all = await player.available();
-    message.reply(all);
+    message.reply(`Sounds available: ${all.length}`);
+
+    all
+      .join(",")
+      .match(/.{1,1800}/g)
+      ?.forEach((block) => {
+        message.author.send(block);
+      });
+
     return;
   }
 
@@ -27,7 +35,11 @@ export async function onMessage(message: Message): Promise<void> {
   }
 
   Logger.info(`Attempting to play sound ${text}`);
-  player.playSound(text);
+  const success = await player.playSound(text);
+
+  if (!success) {
+    message.reply("Failed to play sound :(");
+  }
 }
 
 async function covertToText(message: Message): Promise<string> {

@@ -1,4 +1,8 @@
-import { PlayerSubscription, joinVoiceChannel } from "@discordjs/voice";
+import {
+  PlayerSubscription,
+  VoiceConnectionStatus,
+  joinVoiceChannel,
+} from "@discordjs/voice";
 import { VoiceBasedChannel } from "discord.js";
 import { player } from "./audio";
 import { Logger } from "./logger";
@@ -23,6 +27,10 @@ class SubscriptionManager {
       channelId: id,
       guildId: guild.id,
       adapterCreator: guild.voiceAdapterCreator,
+    });
+
+    connection.on(VoiceConnectionStatus.Disconnected, () => {
+      Logger.info("Voice connection disconnected!");
     });
 
     this.#subscription = connection.subscribe(player);
