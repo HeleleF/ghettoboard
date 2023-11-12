@@ -19,70 +19,57 @@ export function onVoiceStateUpdate(prev: VoiceState, next: VoiceState): void {
 
 interface GhettoUser extends User {
   // TODO: ideally, this tracks last joined *per channel*
-  lastJoinedAt?: number;
+  lastWelcomeAt?: number;
+  lastFarewellAt?: number;
 }
 
-const USER_WELCOME_TIMEOUT = 15_000;
+const USER_GREET_TIMEOUT = 15_000;
 
 async function onVoiceStateEvent(event: VoiceStateChangedEvent): Promise<void> {
+  if (bot.user === null) {
+    return;
+  }
   switch (event.status) {
     case "USER_JOINED": {
       const ch = event.voiceState.channel;
 
-      if (
-        bot.user === null ||
-        (ch.members.size > 1 && !ch.members.has(bot.user.id))
-      )
-        return;
+      if (ch.members.size > 1 && !ch.members.has(bot.user.id)) return;
 
-      if (ch.client.user.presence.status !== PresenceUpdateStatus.Online) {
-        ch.client.user.setPresence({ status: PresenceUpdateStatus.Online });
+      if (bot.user.presence.status !== PresenceUpdateStatus.Online) {
+        bot.user.setPresence({ status: PresenceUpdateStatus.Online });
       }
 
-      const newUser = event.voiceState.member?.user as GhettoUser;
-
-      Logger.info(
-        `User ${bold(newUser.username)} joined channel ${bold(ch.name)}`
-      );
-
-      const now = Date.now();
-
-      if (now - (newUser.lastJoinedAt ?? 0) > USER_WELCOME_TIMEOUT) {
-        subscriptionManager.ensureSubscribed(ch);
-
-        await delay(500);
-        player.playSound("HALLO");
-      }
-
-      newUser.lastJoinedAt = now;
-
-      break;
+      return welcomeUser(event.voiceState.member.user, ch);
     }
 
     case "USER_SWITCHED": {
-      Logger.info(
-        `User ${bold(
-          event.nextVoiceState.member?.user.username
-        )} switched to channel ${bold(event.nextVoiceState.channel.name)}`
-      );
+      const ch = event.nextVoiceState.channel;
 
-      break;
+      if (isChannelEmpty(event.prevVoiceState.channel)) {
+        Logger.info(`Last user switched, channel now empty`);
+
+        subscriptionManager.destroy();
+        subscriptionManager.ensureSubscribed(event.nextVoiceState.channel);
+        return;
+      }
+
+      if (!ch.members.has(bot.user.id)) {
+        return;
+      }
+
+      return welcomeUser(event.nextVoiceState.member.user, ch, true);
     }
 
     case "USER_LEFT": {
       const ch = event.voiceState.channel;
 
-      Logger.info(
-        `User ${bold(
-          event.voiceState.member?.user.username
-        )} left channel ${bold(ch.name)}`
-      );
-
-      if (isChannelEmpty(ch)) {
-        Logger.info(`Last user left, channel now empty`);
-        subscriptionManager.destroy();
-        ch.client.user.setPresence({ status: PresenceUpdateStatus.Invisible });
+      if (!isChannelEmpty(ch)) {
+        return farewellUser(event.voiceState.member.user, ch);
       }
+
+      Logger.info(`Last user left, channel now empty`);
+      subscriptionManager.destroy();
+      bot.user.setPresence({ status: PresenceUpdateStatus.Invisible });
 
       break;
     }
@@ -98,6 +85,45 @@ async function onVoiceStateEvent(event: VoiceStateChangedEvent): Promise<void> {
 
 function isChannelEmpty({ members }: VoiceBasedChannel): boolean {
   return (
-    members.size === 0 || (members.size === 1 && !!members.at(0)?.user.bot)
+    members.size === 0 ||
+    (members.size === 1 && members.at(0)?.user === bot.user)
   );
+}
+
+async function welcomeUser(
+  user: GhettoUser,
+  ch: VoiceBasedChannel,
+  switched?: boolean
+): Promise<void> {
+  Logger.info(
+    `User ${bold(user.username)} ${
+      switched ? "switched to" : "joined"
+    } channel ${bold(ch.name)}`
+  );
+
+  const now = Date.now();
+
+  if (now - (user.lastWelcomeAt ?? 0) > USER_GREET_TIMEOUT) {
+    subscriptionManager.ensureSubscribed(ch);
+
+    await delay(500);
+    player.playSound("HALLO", true);
+  }
+
+  user.lastWelcomeAt = now;
+}
+
+async function farewellUser(
+  user: GhettoUser,
+  ch: VoiceBasedChannel
+): Promise<void> {
+  Logger.info(`User ${bold(user.username)} left channel ${bold(ch.name)}`);
+
+  const now = Date.now();
+
+  if (now - (user.lastFarewellAt ?? 0) > USER_GREET_TIMEOUT) {
+    player.playSound("bye_bye", true);
+  }
+
+  user.lastFarewellAt = now;
 }

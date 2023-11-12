@@ -9,40 +9,49 @@ import { Logger } from "./logger";
 import { readdir, stat } from "fs/promises";
 
 class SoundPlayer extends AudioPlayer {
-  #availableSounds: Promise<Set<string>>;
+  #resourceQueue: AudioResource<SoundMeta>[];
+  #playing: boolean;
 
   constructor(options?: CreateAudioPlayerOptions) {
     super(options);
-    this.#availableSounds = this.#readAvailableSounds();
-  }
+    this.#playing = false;
+    this.#resourceQueue = [];
 
-  async #readAvailableSounds() {
-    const dir = await readdir("sounds/", { withFileTypes: true });
+    super.on(AudioPlayerStatus.Playing, (_, state) => {
+      this.#playing = true;
+      const current = this.#resourceQueue.shift();
 
-    const files = dir.flatMap((e) => (e.isFile() ? e.name : []));
+      Logger.info(
+        `Playing ${
+          current?.metadata.title ??
+          (state.resource.metadata as SoundMeta).title
+        }`
+      );
+    });
 
-    return new Set(files);
+    super.on(AudioPlayerStatus.Idle, () => {
+      this.#playing = false;
+      if (this.#resourceQueue.length > 0) {
+        Logger.info(`Consuming queue, ${this.#resourceQueue.length} remaining`);
+        super.play(this.#resourceQueue[0]);
+      }
+    });
+
+    super.on("error", (error) => {
+      this.#playing = false;
+      this.#resourceQueue = [];
+      Logger.error(
+        `Error: ${error.message} with resource ${JSON.stringify(
+          error.resource.metadata
+        )}`
+      );
+    });
   }
 
   async available() {
-    const all = await this.#availableSounds;
+    const dir = await readdir("sounds/", { withFileTypes: true });
 
-    return [...all.values()].map((name) => name.slice(0, -4)).sort();
-  }
-
-  async playSound(name: string): Promise<boolean> {
-    const canPlay = await this.canPlaySound(name);
-    if (!canPlay) return false;
-
-    const resource = createAudio(name);
-
-    try {
-      super.play(resource);
-      return true;
-    } catch (error) {
-      Logger.error(error);
-      return false;
-    }
+    return dir.flatMap((e) => (e.isFile() ? e.name.slice(0, -4) : [])).sort();
   }
 
   async canPlaySound(name: string) {
@@ -53,28 +62,36 @@ class SoundPlayer extends AudioPlayer {
       return false;
     }
   }
-}
 
-function setupPlayer(): SoundPlayer {
-  const player = new SoundPlayer();
+  async playSound(name: string, force = false): Promise<boolean> {
+    const canPlay = await this.canPlaySound(name);
+    if (!canPlay) return false;
 
-  player.on(AudioPlayerStatus.Playing, () => {
-    Logger.info("Playing audio...");
-  });
+    const resource = createAudio(name);
 
-  player.on(AudioPlayerStatus.Idle, () => {
-    Logger.info("Idle...");
-  });
+    return force ? this.#immediately(resource) : this.#queue(resource);
+  }
 
-  player.on("error", (error) => {
-    Logger.error(
-      `Error: ${error.message} with resource ${JSON.stringify(
-        error.resource.metadata
-      )}`
-    );
-  });
+  #immediately(resource: AudioResource): boolean {
+    this.#resourceQueue = [];
+    try {
+      super.play(resource);
+      return true;
+    } catch (error) {
+      Logger.error(error);
+      return false;
+    }
+  }
 
-  return player;
+  #queue(resource: AudioResource<SoundMeta>): boolean {
+    this.#resourceQueue.push(resource);
+
+    if (!this.#playing) {
+      super.play(this.#resourceQueue[0]);
+    }
+
+    return true;
+  }
 }
 
 interface SoundMeta {
@@ -87,4 +104,4 @@ function createAudio(name: string): AudioResource<SoundMeta> {
   });
 }
 
-export const player = setupPlayer();
+export const player = new SoundPlayer();

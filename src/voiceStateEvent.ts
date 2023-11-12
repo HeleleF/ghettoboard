@@ -1,4 +1,4 @@
-import { VoiceState, VoiceBasedChannel } from "discord.js";
+import { VoiceState, VoiceBasedChannel, GuildMember } from "discord.js";
 
 export function asEvent(
   prev: VoiceState,
@@ -57,6 +57,7 @@ interface UserJoinedEvent {
   readonly status: "USER_JOINED";
   readonly voiceState: VoiceState & {
     readonly channel: VoiceBasedChannel;
+    readonly member: GuildMember;
   };
 }
 
@@ -64,9 +65,11 @@ interface UserSwitchedEvent {
   readonly status: "USER_SWITCHED";
   readonly prevVoiceState: VoiceState & {
     readonly channel: VoiceBasedChannel;
+    readonly member: GuildMember;
   };
   readonly nextVoiceState: VoiceState & {
     readonly channel: VoiceBasedChannel;
+    readonly member: GuildMember;
   };
 }
 
@@ -74,6 +77,7 @@ interface UserLeftEvent {
   readonly status: "USER_LEFT";
   readonly voiceState: VoiceState & {
     readonly channel: VoiceBasedChannel;
+    readonly member: GuildMember;
   };
 }
 
