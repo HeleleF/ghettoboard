@@ -1,9 +1,4 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  Message,
-} from "discord.js";
+import { Message } from "discord.js";
 import { player } from "./audio";
 import { Logger } from "./logger";
 import { subscriptionManager } from "./connection";
@@ -11,6 +6,8 @@ import { bot } from "./bot";
 
 export async function onMessage(message: Message): Promise<void> {
   if (message.author === bot.user) return;
+
+  bot.channels.holds;
 
   const text = await covertToText(message);
   if (!text) return;
