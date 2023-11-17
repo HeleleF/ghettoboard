@@ -25,6 +25,8 @@ interface GhettoUser extends User {
 
 const USER_GREET_TIMEOUT = 15_000;
 
+// TODO: maltorian spongebog sound, bazooka fantasktik, cynown hi nadine ich bins karsten
+
 async function onVoiceStateEvent(event: VoiceStateChangedEvent): Promise<void> {
   if (bot.user === null) {
     return;
@@ -107,7 +109,7 @@ async function welcomeUser(
     subscriptionManager.ensureSubscribed(ch);
 
     await delay(500);
-    player.playSound("HALLO", true);
+    player.playSound("HELLO", true);
   }
 
   user.lastWelcomeAt = now;
